@@ -8,6 +8,7 @@ import (
 )
 
 type DigestRequest struct {
+	Client   *http.Client
 	Body     string
 	Method   string
 	Password string
@@ -23,9 +24,9 @@ type DigestTransport struct {
 }
 
 // NewRequest creates a new DigestRequest object
-func NewRequest(username, password, method, uri, body string) DigestRequest {
+func NewRequest(username, password, method, uri, body string, client *http.Client) DigestRequest {
 	dr := DigestRequest{}
-	dr.UpdateRequest(username, password, method, uri, body)
+	dr.UpdateRequest(username, password, method, uri, body, client)
 	return dr
 }
 
@@ -39,12 +40,13 @@ func NewTransport(username, password string) DigestTransport {
 
 // UpdateRequest is called when you want to reuse an existing
 //  DigestRequest connection with new request information
-func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string) *DigestRequest {
+func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string, client *http.Client) *DigestRequest {
 	dr.Body = body
 	dr.Method = method
 	dr.Password = password
 	dr.Uri = uri
 	dr.Username = username
+	dr.Client = client
 	return dr
 }
 
@@ -62,7 +64,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 		body = buf.String()
 	}
 
-	dr := NewRequest(username, password, method, uri, body)
+	dr := NewRequest(username, password, method, uri, body, nil)
 	return dr.Execute()
 }
 
@@ -78,10 +80,13 @@ func (dr *DigestRequest) Execute() (resp *http.Response, err error) {
 		return nil, err
 	}
 
-	client := &http.Client{
-		Timeout: 30 * time.Second,
+	if dr.Client == nil {
+		dr.Client = &http.Client{
+			Timeout: 30 * time.Second,
+		}
 	}
-	if resp, err = client.Do(req); err != nil {
+
+	if resp, err = dr.Client.Do(req); err != nil {
 		return nil, err
 	}
 
@@ -141,7 +146,9 @@ func (dr *DigestRequest) executeRequest(authString string) (resp *http.Response,
 
 	req.Header.Add("Authorization", authString)
 
-	client := &http.Client{}
+	if dr.Client == nil {
+		dr.Client = &http.Client{}
+	}
 
-	return client.Do(req)
+	return dr.Client.Do(req)
 }
