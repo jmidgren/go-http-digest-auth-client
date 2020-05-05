@@ -25,15 +25,15 @@ type DigestTransport struct {
 	Username string
 }
 
-// NewRequest creates a new DigestRequest object
-func NewRequest(username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
+// NewDigestRequest creates a new DigestRequest object
+func NewDigestRequest(username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
 	dr := DigestRequest{}
 	dr.UpdateRequest(username, password, method, uri, body, client, header)
 	return dr
 }
 
-// NewTransport creates a new DigestTransport object
-func NewTransport(username, password string, client *http.Client) DigestTransport {
+// NewDigestTransport creates a new DigestTransport object
+func NewDigestTransport(username, password string, client *http.Client) DigestTransport {
 	dt := DigestTransport{}
 	dt.Client = client
 	dt.Password = password
@@ -69,7 +69,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 		body = buf.String()
 	}
 
-	dr := NewRequest(username, password, method, uri, body, dt.Client, header)
+	dr := NewDigestRequest(username, password, method, uri, body, dt.Client, header)
 	return dr.Execute()
 }
 
@@ -124,7 +124,7 @@ func (dr *DigestRequest) executeNewDigest(resp *http.Response) (resp2 *http.Resp
 		return nil, err
 	}
 
-	if resp2, err = dr.executeRequest(auth.toString()); err != nil {
+	if resp2, err = dr.executeDigestRequest(auth.toString()); err != nil {
 		return nil, err
 	}
 
@@ -140,10 +140,10 @@ func (dr *DigestRequest) executeExistingDigest() (resp *http.Response, err error
 	}
 	dr.Auth = auth
 
-	return dr.executeRequest(dr.Auth.toString())
+	return dr.executeDigestRequest(dr.Auth.toString())
 }
 
-func (dr *DigestRequest) executeRequest(authString string) (resp *http.Response, err error) {
+func (dr *DigestRequest) executeDigestRequest(authString string) (resp *http.Response, err error) {
 	var req *http.Request
 
 	if req, err = http.NewRequest(dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
