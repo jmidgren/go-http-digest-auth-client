@@ -14,6 +14,7 @@ type DigestRequest struct {
 	Password string
 	Uri      string
 	Username string
+	Header   http.Header
 	Auth     *authorization
 	Wa       *wwwAuthenticate
 }
@@ -25,9 +26,9 @@ type DigestTransport struct {
 }
 
 // NewRequest creates a new DigestRequest object
-func NewRequest(username, password, method, uri, body string, client *http.Client) DigestRequest {
+func NewRequest(username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
 	dr := DigestRequest{}
-	dr.UpdateRequest(username, password, method, uri, body, client)
+	dr.UpdateRequest(username, password, method, uri, body, client, header)
 	return dr
 }
 
@@ -42,13 +43,14 @@ func NewTransport(username, password string, client *http.Client) DigestTranspor
 
 // UpdateRequest is called when you want to reuse an existing
 //  DigestRequest connection with new request information
-func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string, client *http.Client) *DigestRequest {
+func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string, client *http.Client, header http.Header) *DigestRequest {
 	dr.Body = body
 	dr.Method = method
 	dr.Password = password
 	dr.Uri = uri
 	dr.Username = username
 	dr.Client = client
+	dr.Header = header
 	return dr
 }
 
@@ -58,6 +60,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 	password := dt.Password
 	method := req.Method
 	uri := req.URL.String()
+	header := req.Header
 
 	var body string
 	if req.Body != nil {
@@ -66,7 +69,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 		body = buf.String()
 	}
 
-	dr := NewRequest(username, password, method, uri, body, dt.Client)
+	dr := NewRequest(username, password, method, uri, body, dt.Client, header)
 	return dr.Execute()
 }
 
@@ -81,6 +84,7 @@ func (dr *DigestRequest) Execute() (resp *http.Response, err error) {
 	if req, err = http.NewRequest(dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
 		return nil, err
 	}
+	dr.addHeaders(req)
 
 	if dr.Client == nil {
 		dr.Client = &http.Client{
@@ -145,7 +149,7 @@ func (dr *DigestRequest) executeRequest(authString string) (resp *http.Response,
 	if req, err = http.NewRequest(dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
 		return nil, err
 	}
-
+	dr.addHeaders(req)
 	req.Header.Add("Authorization", authString)
 
 	if dr.Client == nil {
@@ -153,4 +157,8 @@ func (dr *DigestRequest) executeRequest(authString string) (resp *http.Response,
 	}
 
 	return dr.Client.Do(req)
+}
+
+func (dr *DigestRequest) addHeaders(req *http.Request) {
+	req.Header = dr.Header.Clone()
 }
