@@ -19,6 +19,7 @@ type DigestRequest struct {
 }
 
 type DigestTransport struct {
+	Client   *http.Client
 	Password string
 	Username string
 }
@@ -31,8 +32,9 @@ func NewRequest(username, password, method, uri, body string, client *http.Clien
 }
 
 // NewTransport creates a new DigestTransport object
-func NewTransport(username, password string) DigestTransport {
+func NewTransport(username, password string, client *http.Client) DigestTransport {
 	dt := DigestTransport{}
+	dt.Client = client
 	dt.Password = password
 	dt.Username = username
 	return dt
@@ -64,7 +66,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 		body = buf.String()
 	}
 
-	dr := NewRequest(username, password, method, uri, body, nil)
+	dr := NewRequest(username, password, method, uri, body, dt.Client)
 	return dr.Execute()
 }
 
