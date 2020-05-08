@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	dac "github.com/xinsnake/go-http-digest-auth-client"
+	dac "github.com/iselind/go-http-digest-auth-client"
 )
 
 const (
@@ -21,7 +21,7 @@ func main() {
 	var body []byte
 	var err error
 
-	dr := dac.NewRequest(username, password, method, uri, "")
+	dr := dac.NewRequest(username, password, method, uri, "", nil)
 
 	if resp, err = dr.Execute(); err != nil {
 		log.Fatalln(err)
