@@ -2,12 +2,14 @@ package digest_auth_client
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"time"
 )
 
 type DigestRequest struct {
+	ctx      context.Context
 	Client   *http.Client
 	Body     string
 	Method   string
@@ -29,6 +31,15 @@ type DigestTransport struct {
 func NewDigestRequest(username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
 	dr := DigestRequest{}
 	dr.UpdateRequest(username, password, method, uri, body, client, header)
+	dr.setContext(context.Background())
+	return dr
+}
+
+// NewDigestRequestWithContext creates a new DigestRequest object
+func NewDigestRequestWithContext(ctx context.Context, username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
+	dr := DigestRequest{}
+	dr.UpdateRequest(username, password, method, uri, body, client, header)
+	dr.setContext(ctx)
 	return dr
 }
 
@@ -43,6 +54,7 @@ func NewDigestTransport(username, password string, client *http.Client) DigestTr
 
 // UpdateRequest is called when you want to reuse an existing
 //  DigestRequest connection with new request information
+// Note that original context is reused
 func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string, client *http.Client, header http.Header) *DigestRequest {
 	dr.Body = body
 	dr.Method = method
@@ -56,6 +68,7 @@ func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body str
 
 // RoundTrip implements the http.RoundTripper interface
 func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	ctx := req.Context()
 	username := dt.Username
 	password := dt.Password
 	method := req.Method
@@ -69,7 +82,7 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 		body = buf.String()
 	}
 
-	dr := NewDigestRequest(username, password, method, uri, body, dt.Client, header)
+	dr := NewDigestRequestWithContext(ctx, username, password, method, uri, body, dt.Client, header)
 	return dr.Execute()
 }
 
@@ -81,7 +94,7 @@ func (dr *DigestRequest) Execute() (resp *http.Response, err error) {
 	}
 
 	var req *http.Request
-	if req, err = http.NewRequest(dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
+	if req, err = http.NewRequestWithContext(dr.ctx, dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
 		return nil, err
 	}
 	dr.addHeaders(req)
@@ -146,7 +159,7 @@ func (dr *DigestRequest) executeExistingDigest() (resp *http.Response, err error
 func (dr *DigestRequest) executeDigestRequest(authString string) (resp *http.Response, err error) {
 	var req *http.Request
 
-	if req, err = http.NewRequest(dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
+	if req, err = http.NewRequestWithContext(dr.ctx, dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
 		return nil, err
 	}
 	dr.addHeaders(req)
@@ -161,4 +174,8 @@ func (dr *DigestRequest) executeDigestRequest(authString string) (resp *http.Res
 
 func (dr *DigestRequest) addHeaders(req *http.Request) {
 	req.Header = dr.Header.Clone()
+}
+
+func (dr *DigestRequest) setContext(ctx context.Context) {
+	dr.ctx = ctx
 }
