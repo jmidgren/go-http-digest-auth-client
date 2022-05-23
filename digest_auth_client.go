@@ -9,7 +9,7 @@ import (
 )
 
 type DigestRequest struct {
-	ctx      context.Context
+	Context  context.Context
 	Client   *http.Client
 	Body     string
 	Method   string
@@ -30,16 +30,15 @@ type DigestTransport struct {
 // NewDigestRequest creates a new DigestRequest object
 func NewDigestRequest(username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
 	dr := DigestRequest{}
-	dr.UpdateRequest(username, password, method, uri, body, client, header)
-	dr.setContext(context.Background())
+	dr.UpdateRequestWithContext(context.Background(), username, password, method, uri, body, client, header)
 	return dr
 }
 
-// NewDigestRequestWithContext creates a new DigestRequest object
+// NewDigestRequestWithContext creates a new DigestRequest
+//  object passing along the provided context
 func NewDigestRequestWithContext(ctx context.Context, username, password, method, uri, body string, client *http.Client, header http.Header) DigestRequest {
 	dr := DigestRequest{}
-	dr.UpdateRequest(username, password, method, uri, body, client, header)
-	dr.setContext(ctx)
+	dr.UpdateRequestWithContext(ctx, username, password, method, uri, body, client, header)
 	return dr
 }
 
@@ -53,9 +52,25 @@ func NewDigestTransport(username, password string, client *http.Client) DigestTr
 }
 
 // UpdateRequest is called when you want to reuse an existing
-//  DigestRequest connection with new request information
-// Note that original context is reused
+//  DigestRequest connection with new request information.
+// Note that original context is reused, meaning that a specified
+//  context timeout is not reset when using this function.
 func (dr *DigestRequest) UpdateRequest(username, password, method, uri, body string, client *http.Client, header http.Header) *DigestRequest {
+	dr.Body = body
+	dr.Method = method
+	dr.Password = password
+	dr.Uri = uri
+	dr.Username = username
+	dr.Client = client
+	dr.Header = header
+	return dr
+}
+
+// UpdateRequestWithContext is called when you want to reuse an
+//  existing DigestRequest connection with new request information
+//  also specifying the context
+func (dr *DigestRequest) UpdateRequestWithContext(ctx context.Context, username, password, method, uri, body string, client *http.Client, header http.Header) *DigestRequest {
+	dr.Context = ctx
 	dr.Body = body
 	dr.Method = method
 	dr.Password = password
@@ -94,7 +109,7 @@ func (dr *DigestRequest) Execute() (resp *http.Response, err error) {
 	}
 
 	var req *http.Request
-	if req, err = http.NewRequestWithContext(dr.ctx, dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
+	if req, err = http.NewRequestWithContext(dr.Context, dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
 		return nil, err
 	}
 	dr.addHeaders(req)
@@ -159,7 +174,7 @@ func (dr *DigestRequest) executeExistingDigest() (resp *http.Response, err error
 func (dr *DigestRequest) executeDigestRequest(authString string) (resp *http.Response, err error) {
 	var req *http.Request
 
-	if req, err = http.NewRequestWithContext(dr.ctx, dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
+	if req, err = http.NewRequestWithContext(dr.Context, dr.Method, dr.Uri, bytes.NewReader([]byte(dr.Body))); err != nil {
 		return nil, err
 	}
 	dr.addHeaders(req)
@@ -174,8 +189,4 @@ func (dr *DigestRequest) executeDigestRequest(authString string) (resp *http.Res
 
 func (dr *DigestRequest) addHeaders(req *http.Request) {
 	req.Header = dr.Header.Clone()
-}
-
-func (dr *DigestRequest) setContext(ctx context.Context) {
-	dr.ctx = ctx
 }
