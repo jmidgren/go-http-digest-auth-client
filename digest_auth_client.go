@@ -68,7 +68,7 @@ func (dr *DigestRequest) SetLogging(enabled bool) {
 
 func (dr *DigestRequest) log(format string, args ...any) {
 	if dr.logging {
-		dr.messages += fmt.Sprintf(format+"\n", args)
+		dr.messages += fmt.Sprintf(format+"\n", args...)
 	}
 }
 
@@ -122,6 +122,8 @@ func (dt *DigestTransport) RoundTrip(req *http.Request) (resp *http.Response, er
 
 	dr := NewDigestRequestWithContext(ctx, username, password, method, uri, body, dt.Client, header)
 	dr.SetLogging(dt.logging)
+	dr.log("URL: %s", uri)
+	dr.log("username: %s", username)
 	return dr.Execute()
 }
 
